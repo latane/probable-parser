@@ -9,6 +9,10 @@ from webapp import app
 if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.read('config.ini')
-        
-    #app.run(threaded=True, host=config['DEFAULT']['WEB_HOST'], port=int(config['DEFAULT']['WEB_PORT']))
-    app.run(threaded=True, host="0.0.0.0", port=8080)
+
+    app_host = config["DEFAULT"]["WEB_HOST"]
+    # app_host = "0.0.0.0"
+    app_port = int(config["DEFAULT"]["WEB_PORT"])
+    # app_port = 8080
+    app.run(threaded=True, host=app_host, port=app_port)
+    # app.run(threaded=True, host="0.0.0.0", port=8080)
