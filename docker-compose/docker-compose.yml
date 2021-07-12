@@ -5,8 +5,8 @@ services:
     image: neo4j:4.2.2
     hostname: "neo4j"
     ports:
-      -"7474:7474"
-      -"7687:7687"
+      - "7474:7474"
+      - "7687:7687"
     environment:
       - NEO4J_dbms_default__database=neo4j
       - NEO4J_dbms_connector_bolt_listen__address=0.0.0.0:7687
@@ -17,7 +17,7 @@ services:
     container_name: probableparser
     build:
       context: ../
-      dockerfile: docker-compose/dockerfile
+      dockerfile: docker-compose/Dockerfile
     depends_on: 
       - neo4j
     ports:
