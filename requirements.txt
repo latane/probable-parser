@@ -2,3 +2,5 @@ py2neo
 evtx
 flask
 flask_cors
+flask-uploads
+lxml
