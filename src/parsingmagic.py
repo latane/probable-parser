@@ -17,11 +17,13 @@ class Event_obj:
     def __init__(self, record_data):
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
+
         #prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
         self.formatted_time = datetime.strptime(event_time.split('.')[0], time_string)
         self.event_data = record_data.xpath("/Event/EventData/Data")
         
+        # Initial way to minimize bloat in the logs.  This will reduce the amount of irrelevant nodes/edges inside the database.
         if self.event_id in self.EVENT_ID_LIST:
             self.update_event()
         else:
@@ -55,10 +57,9 @@ def evtx_file_parse(filename):
             record_data = do_stuff(record["data"])
             event = Event_obj(record_data)
             
+            # skip logs that are not in the EVENT_ID_LIST
             if event.ignore:
                 continue
-            else:
-                print(event)
             
             
             # input()
