@@ -30,8 +30,9 @@ def upload():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             # file.save(file.filename)
+            return "Success"
         else:
-            return "FAIL2"
+            return "FAIL @ Upload"
         
         
     
