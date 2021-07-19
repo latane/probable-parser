@@ -1,7 +1,10 @@
+import re
 from evtx import PyEvtxParser
 from py2neo import Graph
 from lxml import etree
 from datetime import datetime
+import log_constants.py as var
+
 
 def do_stuff(record_xml):
     rep_xml = record_xml.replace(
@@ -11,18 +14,49 @@ def do_stuff(record_xml):
     parser = etree.XMLParser(resolve_entities=False)
     return etree.fromstring(fin_xml, parser)
 
+
 class Event_obj:
     # add new IDs to catch here.
-    EVENT_ID_LIST = [4624, 4625, 4662, 4768, 4769, 4776, 4672, 4720, 4726, 4728, 4729, 4732, 4733, 4756, 4757, 4719, 5137, 5141]
+    EVENT_ID_LIST = [
+        1102,
+        4624,
+        4625,
+        4662,
+        4768,
+        4769,
+        4776,
+        4672,
+        4720,
+        4726,
+        4728,
+        4729,
+        4732,
+        4733,
+        4756,
+        4757,
+        4719,
+        5137,
+        5141,
+    ]
+
     def __init__(self, record_data):
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
 
-        #prepare time
+        # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
-        self.formatted_time = datetime.strptime(event_time.split('.')[0], time_string)
+        self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string)
         self.event_data = record_data.xpath("/Event/EventData/Data")
-        
+        self.logintype = 0
+        self.username = "-"
+        self.domain = "-"
+        self.ipaddress = "-"
+        self.hostname = "-"
+        self.status = "-"
+        self.sid = "-"
+        self.authname = "-"
+        self.guid = "-"
+
         # Initial way to minimize bloat in the logs.  This will reduce the amount of irrelevant nodes/edges inside the database.
         if self.event_id in self.EVENT_ID_LIST:
             self.update_event()
@@ -32,20 +66,61 @@ class Event_obj:
     def __str__(self):
         return str(self.event_id)
 
+    def event_4762(self):
+        for data in self.event_data:
+            if (
+                data.get("Name") in "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
+
+    def event_1102(self):
+        pass
+
+    def event_4719(self):
+        pass
+
+    def event_4720_4726(self):
+        pass
+
+    def event_4728_4732_4756(self):
+        pass
+
+    def event_4729_4733_4757(self):
+        pass
+
+    def event_4662(self):
+        pass
+
+    def event_5137_5141(self):
+        pass
+
+    def event_catch_all(self):
+        pass
+
     def update_event(self):
-        if self.event_id == 4672:
-            pass
+        if self.event_id == 1102:
+            self.event_1102()
+        elif self.event_id == 4672:
+            self.event_4762()
+        elif self.event_id == 4719:
+            self.event_4719()
+        elif self.event_id in [4720, 4726]:
+            self.event_4720_4726()
         elif self.event_id in [4728, 4732, 4756]:
-            pass
+            self.event_4728_4732_4756()
         elif self.event_id in [4729, 4733, 4757]:
-            pass
+            self.event_4729_4733_4757()
         elif self.event_id == 4662:
-            pass
+            self.event_4662()
         elif self.event_id in [5137, 5141]:
-            pass
+            self.event_5137_5141()
         else:
-            pass # catch all
-            
+            self.event_catch_all()
+
 
 def evtx_file_parse(filename):
     # evtx validation?
@@ -56,19 +131,15 @@ def evtx_file_parse(filename):
 
             record_data = do_stuff(record["data"])
             event = Event_obj(record_data)
-            
+
             # skip logs that are not in the EVENT_ID_LIST
             if event.ignore:
                 continue
-            
-            
+
             # input()
 
 
-    
-
-
 if __name__ == "__main__":
-    #testing
+    # testing
     time_string = "%Y-%m-%dT%H:%M:%S"
-    evtx_file_parse('./upload/ForwardedEvents.evtx')
+    evtx_file_parse("./upload/ForwardedEvents.evtx")
