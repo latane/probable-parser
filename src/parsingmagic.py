@@ -66,19 +66,14 @@ class Event_obj:
     def __str__(self):
         return str(self.event_id)
 
-    def event_4762(self):
-        for data in self.event_data:
-            if (
-                data.get("Name") in "SubjectUserName"
-                and data.text is not None
-                and not re.search(var.UCHECK, data.text)
-            ):
-                tmp_name = data.text.split("@")[0]
-                if not tmp_name.endswith("$"):
-                    self.username = f"{tmp_name.lower()}@"
+
 
     def event_1102(self):
         pass
+
+    def event_4662(self):
+        pass
+
 
     def event_4719(self):
         pass
@@ -92,8 +87,16 @@ class Event_obj:
     def event_4729_4733_4757(self):
         pass
 
-    def event_4662(self):
-        pass
+    def event_4762(self):
+        for data in self.event_data:
+            if (
+                data.get("Name") in "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
 
     def event_5137_5141(self):
         pass
@@ -104,8 +107,10 @@ class Event_obj:
     def update_event(self):
         if self.event_id == 1102:
             self.event_1102()
+        elif self.event_id == 4662:
+            self.event_4662()
         elif self.event_id == 4672:
-            self.event_4762()
+            self.event_4672()
         elif self.event_id == 4719:
             self.event_4719()
         elif self.event_id in [4720, 4726]:
@@ -114,8 +119,6 @@ class Event_obj:
             self.event_4728_4732_4756()
         elif self.event_id in [4729, 4733, 4757]:
             self.event_4729_4733_4757()
-        elif self.event_id == 4662:
-            self.event_4662()
         elif self.event_id in [5137, 5141]:
             self.event_5137_5141()
         else:
