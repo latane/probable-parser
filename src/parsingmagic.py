@@ -68,26 +68,26 @@ class Event_obj:
 
 
 
-    def event_1102(self):
+    def _event_1102(self):
         pass
 
-    def event_4662(self):
+    def _event_4662(self):
         pass
 
 
-    def event_4719(self):
+    def _event_4719(self):
         pass
 
-    def event_4720_4726(self):
+    def _event_4720_4726(self):
         pass
 
-    def event_4728_4732_4756(self):
+    def _event_4728_4732_4756(self):
         pass
 
-    def event_4729_4733_4757(self):
+    def _event_4729_4733_4757(self):
         pass
 
-    def event_4762(self):
+    def _event_4762(self):
         for data in self.event_data:
             if (
                 data.get("Name") in "SubjectUserName"
@@ -98,31 +98,33 @@ class Event_obj:
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
 
-    def event_5137_5141(self):
+    def _event_5137_5141(self):
         pass
 
-    def event_catch_all(self):
-        pass
+    def _event_catch_all(self):
+        for data in self.event_data:
+            if (data.get("Name" in ["IpAddress", "Wordstation"])):
+                pass
 
     def update_event(self):
         if self.event_id == 1102:
-            self.event_1102()
+            self._event_1102()
         elif self.event_id == 4662:
-            self.event_4662()
+            self._event_4662()
         elif self.event_id == 4672:
-            self.event_4672()
+            self._event_4672()
         elif self.event_id == 4719:
-            self.event_4719()
+            self._event_4719()
         elif self.event_id in [4720, 4726]:
-            self.event_4720_4726()
+            self._event_4720_4726()
         elif self.event_id in [4728, 4732, 4756]:
-            self.event_4728_4732_4756()
+            self._event_4728_4732_4756()
         elif self.event_id in [4729, 4733, 4757]:
-            self.event_4729_4733_4757()
+            self._event_4729_4733_4757()
         elif self.event_id in [5137, 5141]:
-            self.event_5137_5141()
+            self._event_5137_5141()
         else:
-            self.event_catch_all()
+            self._event_catch_all()
 
 
 def evtx_file_parse(filename):
