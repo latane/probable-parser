@@ -3,7 +3,7 @@ from evtx import PyEvtxParser
 from py2neo import Graph
 from lxml import etree
 from datetime import datetime
-import log_constants.py as var
+import log_constants as var
 
 
 def do_stuff(record_xml):
@@ -74,6 +74,16 @@ class Event_obj:
     def _event_4662(self):
         pass
 
+    def _event_4672(self):
+        for data in self.event_data:
+            if (
+                data.get("Name") in "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
 
     def _event_4719(self):
         pass
@@ -87,23 +97,14 @@ class Event_obj:
     def _event_4729_4733_4757(self):
         pass
 
-    def _event_4762(self):
-        for data in self.event_data:
-            if (
-                data.get("Name") in "SubjectUserName"
-                and data.text is not None
-                and not re.search(var.UCHECK, data.text)
-            ):
-                tmp_name = data.text.split("@")[0]
-                if not tmp_name.endswith("$"):
-                    self.username = f"{tmp_name.lower()}@"
+
 
     def _event_5137_5141(self):
         pass
 
     def _event_catch_all(self):
         for data in self.event_data:
-            if (data.get("Name" in ["IpAddress", "Wordstation"])):
+            if (data.get("Name") in ["IpAddress", "Wordstation"]):
                 pass
 
     def update_event(self):
@@ -129,6 +130,7 @@ class Event_obj:
 
 def evtx_file_parse(filename):
     # evtx validation?
+    things_to_write = []
     with open(filename, "rb") as evtx_file:
         parser = PyEvtxParser(evtx_file)
 
@@ -140,8 +142,15 @@ def evtx_file_parse(filename):
             # skip logs that are not in the EVENT_ID_LIST
             if event.ignore:
                 continue
-
+            
+            things_to_write.append(event)
             # input()
+
+    # testing123
+    a = set()
+    for item in things_to_write:
+        a.add(item.event_id)
+    print(a)
 
 
 if __name__ == "__main__":
