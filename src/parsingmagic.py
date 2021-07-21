@@ -131,11 +131,38 @@ class Event_obj:
 
 
     def _event_4728_4732_4756(self):
-        pass
+        for data in self.event_data:
+            if (
+                data.get("Name") in "TargetUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                groupname = data.text
+            elif (
+                data.get("Name") in "MemberSid"
+                and data.text not in "-"
+                and data.text is not None
+                and re.search(r"\AS-[0-9\-]*\Z", data.text)
+            ):
+                usid = data.text
+        self.node_tracker = f"AddGroup {groupname} {usid}"
 
     def _event_4729_4733_4757(self):
-        pass
-
+        for data in self.event_data:
+            if (
+                data.get("Name") in "TargetUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                groupname = data.text
+            elif (
+                data.get("Name") in "MemberSid"
+                and data.text not in "-"
+                and data.text is not None
+                and re.search(r"\AS-[0-9\-]*\Z", data.text)
+            ):
+                usid = data.text
+            self.node_tracker = f"Remove {groupname} {usid}"
 
 
     def _event_5137_5141(self):
@@ -188,8 +215,8 @@ def evtx_file_parse(filename):
     # testing123
     a = set()
     for item in things_to_write:
-        a.add(item.event_id)
-    print(a)
+        print(item.node_tracker)
+    
 
 
 if __name__ == "__main__":
