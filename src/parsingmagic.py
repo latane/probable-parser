@@ -149,6 +149,8 @@ class Event_obj:
 
     def _event_4729_4733_4757(self):
         for data in self.event_data:
+            groupname = ""
+            usid = ""
             if (
                 data.get("Name") in "TargetUserName"
                 and data.text is not None
@@ -162,6 +164,7 @@ class Event_obj:
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
             ):
                 usid = data.text
+            
             self.node_tracker = f"Remove {groupname} {usid}"
 
 
@@ -215,7 +218,7 @@ def evtx_file_parse(filename):
     # testing123
     a = set()
     for item in things_to_write:
-        print(item.node_tracker)
+        print(item.node_tracker, end="")
     
 
 
