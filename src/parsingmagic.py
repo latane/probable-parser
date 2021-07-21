@@ -42,7 +42,8 @@ class Event_obj:
     def __init__(self, record_data):
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
-
+        self.node_tracker = ""
+    
         # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
         self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string)
@@ -84,12 +85,50 @@ class Event_obj:
                 tmp_name = data.text.split("@")[0]
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
+        if self.username != "-":
+            self.node_tracker = "admin"
 
     def _event_4719(self):
-        pass
+        for data in self.event_data:
+            if (
+                data.get("Name") in "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
+            if (
+                data.get("Name") in "CategoryId"
+                and data.text is not None
+                and re.search(r"\A%%\d{4}\Z", data.text)
+                ):
+                category = data.text
+            if (
+                data.get("Name") in "SubcategoryGuid"
+                and data.text is not None
+                and re.search(r"\A{[\w\-]*}\Z", data.text)
+                ):
+                guid = data.text                    
+            
+    
+        self.node_tracker = f"policy {category} {guid}"
 
     def _event_4720_4726(self):
-        pass
+        for data in self.event_data:
+            if (
+                data.get("Name") in "TargetUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"            
+        if self.event_id == 4720:
+            self.node_tracker = "add user"
+        else:
+            self.node_tracker = "delete user"
+
 
     def _event_4728_4732_4756(self):
         pass
