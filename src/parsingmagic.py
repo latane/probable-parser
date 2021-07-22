@@ -183,17 +183,65 @@ class Event_obj:
 
     def _event_catch_all(self):
         for data in self.event_data:
+            # IP
             if (data.get("Name") in ["IpAddress", "Wordstation"]
                 and data.text is not None
-                and (
-                    not re.search(var.HCHECK, data.text)
-                    or re.search(var.IPv4_PATTERN, data.text)
-                    or re.search(var.IPv4_v6_PATTERN, data.text)
-                    or re.search(var.IPv6_PATTERN, data.text)
-                )):
-                pass
+                and self._ip_check(data.text)):
+                ipaddress = data.text.split("@")[0]
+                ipaddress = ipaddress.lower().replace("::ffff:", "")
+                self.ipaddress = ipaddress.replace("\\", "")
 
+            # Host
+            if (data.get("Name") == "WorkstationName"
+                and data.text is not None
+                and self._ip_check(data.text)):
+                hostname = data.text.split("@")[0]
+                hostname = hostname.lower().replace("::ffff:", "")
+                self.hostname = hostname.replace("\\", "")
+            
+            # Username
+            if (data.get("Name") == "TargetUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
+            
+            # Domain
+            if (data.get("Name") == "TargetDomainName"
+                and data.text is not None
+                and not re.search(var.HCHECK, data.text)):
+                self.domain = data.text
+            
+            # user sid
+            if (data.get("Name") in ["TargetUserSid", "TargetSid"]
+                and data.text is not None
+                and re.search(r"\AS-[0-9\-]*\Z", data.text)):
+                self.sid = data.text
+
+            # logon type
+            if (data.get("Name") == "LogonType"
+                and re.search(r"\A\d{1,2}\Z", data.text)):
+                self.logintype = int(data.text)
+            
+            # parse status
+            if (data.get("Name") == "status"
+                and re.search(r"\A0x\w{8}\Z", data.text)):
+                self.status = data.text
+
+            # parse Authpkg
+            if (data.get("Name") == "AuthenticationPackageName"
+                and re.search(r"\A\w*\Z", data.text)):
+                self.authname = data.text
+    
                 
+    def _ip_check(self, text_string):
+        
+        return (not re.search(var.HCHECK, text_string)
+            or re.search(var.IPv4_PATTERN, text_string)
+            or re.search(var.IPv4_v6_PATTERN, text_string)
+            or re.search(var.IPv6_PATTERN, text_string))
+        
 
     def update_event(self):
         if self.event_id == 1102:
