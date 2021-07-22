@@ -78,7 +78,7 @@ class Event_obj:
     def _event_4672(self):
         for data in self.event_data:
             if (
-                data.get("Name") in "SubjectUserName"
+                data.get("Name") == "SubjectUserName"
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
@@ -91,7 +91,7 @@ class Event_obj:
     def _event_4719(self):
         for data in self.event_data:
             if (
-                data.get("Name") in "SubjectUserName"
+                data.get("Name") == "SubjectUserName"
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
@@ -99,13 +99,13 @@ class Event_obj:
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
             if (
-                data.get("Name") in "CategoryId"
+                data.get("Name") == "CategoryId"
                 and data.text is not None
                 and re.search(r"\A%%\d{4}\Z", data.text)
                 ):
                 category = data.text
             if (
-                data.get("Name") in "SubcategoryGuid"
+                data.get("Name") == "SubcategoryGuid"
                 and data.text is not None
                 and re.search(r"\A{[\w\-]*}\Z", data.text)
                 ):
@@ -117,7 +117,7 @@ class Event_obj:
     def _event_4720_4726(self):
         for data in self.event_data:
             if (
-                data.get("Name") in "TargetUserName"
+                data.get("Name") == "TargetUserName"
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
@@ -133,13 +133,13 @@ class Event_obj:
     def _event_4728_4732_4756(self):
         for data in self.event_data:
             if (
-                data.get("Name") in "TargetUserName"
+                data.get("Name") == "TargetUserName"
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
                 groupname = data.text
             elif (
-                data.get("Name") in "MemberSid"
+                data.get("Name") == "MemberSid"
                 and data.text not in "-"
                 and data.text is not None
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
@@ -152,13 +152,13 @@ class Event_obj:
             groupname = ""
             usid = ""
             if (
-                data.get("Name") in "TargetUserName"
+                data.get("Name") == "TargetUserName"
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
                 groupname = data.text
             elif (
-                data.get("Name") in "MemberSid"
+                data.get("Name") == "MemberSid"
                 and data.text not in "-"
                 and data.text is not None
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
@@ -169,7 +169,17 @@ class Event_obj:
 
 
     def _event_5137_5141(self):
-        pass
+        for data in self.event_data:
+            if (
+                data.get("Name") == "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
+
+            self.node_tracker = f"dcshadow {self.formatted_time}"
 
     def _event_catch_all(self):
         for data in self.event_data:
