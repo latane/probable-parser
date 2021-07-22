@@ -183,8 +183,17 @@ class Event_obj:
 
     def _event_catch_all(self):
         for data in self.event_data:
-            if (data.get("Name") in ["IpAddress", "Wordstation"]):
+            if (data.get("Name") in ["IpAddress", "Wordstation"]
+                and data.text is not None
+                and (
+                    not re.search(var.HCHECK, data.text)
+                    or re.search(var.IPv4_PATTERN, data.text)
+                    or re.search(var.IPv4_v6_PATTERN, data.text)
+                    or re.search(var.IPv6_PATTERN, data.text)
+                )):
                 pass
+
+                
 
     def update_event(self):
         if self.event_id == 1102:
