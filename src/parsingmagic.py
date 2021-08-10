@@ -6,7 +6,7 @@ from datetime import datetime
 import log_constants as var
 
 
-def do_stuff(record_xml):
+def update_record(record_xml):
     rep_xml = record_xml.replace(
         'xmlns="http://schemas.microsoft.com/win/2004/08/events/event"', ""
     )
@@ -272,7 +272,7 @@ def evtx_file_parse(filename):
 
         for record in parser.records():
 
-            record_data = do_stuff(record["data"])
+            record_data = update_record(record["data"])
             event = Event_obj(record_data)
 
             # skip logs that are not in the EVENT_ID_LIST
