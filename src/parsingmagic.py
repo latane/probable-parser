@@ -46,7 +46,10 @@ class Event_obj:
     
         # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
-        self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string)
+        try:
+            self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string)
+        except ValueError:
+            self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string2)
         self.event_data = record_data.xpath("/Event/EventData/Data")
         self.logintype = 0
         self.username = "-"
@@ -285,11 +288,12 @@ def evtx_file_parse(filename):
     # testing123
     a = set()
     for item in things_to_write:
-        print(item.node_tracker, end="")
+        print(item.node_tracker, end=".")
     
 
 
 if __name__ == "__main__":
     # testing
     time_string = "%Y-%m-%dT%H:%M:%S"
-    evtx_file_parse("./upload/ForwardedEvents.evtx")
+    time_string2 = "%Y-%m-%d %H:%M:%S"
+    evtx_file_parse("./upload/meow.evtx")
