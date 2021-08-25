@@ -40,9 +40,10 @@ class Event_obj:
     ]
 
     def __init__(self, record_data):
+        self.record_data = record_data
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
-        self.node_tracker = ""
+        self.node_tracker = None
     
         # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
@@ -73,10 +74,36 @@ class Event_obj:
 
 
     def _event_1102(self):
-        pass
+        namespace = (
+                    "http://manifests.microsoft.com/win/2004/08/windows/eventlog"
+                )
+        user_data = self.record_data.xpath("/Event/UserData/ns:LogFileCleared/ns:SubjectUserName", 
+            namespaces= {"ns": namespace}
+            )
+        domain_data = self.record_data.xpath(
+            "/Event/UserData/ns:LogFileCleared/ns:SubjectUserName",
+            namespaces={"ns": namespace},
+        )
+        if user_data[0].text is not None:
+            tmp_name = user_data[0].text.split("@")[0]
+            if not tmp_name.endswith("$"):
+                self.username = f"{tmp_name.lower()}@"
+        if domain_data[0].text is not None:
+            self.domain = domain_data[0]
+        self.node_tracker = "delete log"
 
     def _event_4662(self):
-        pass
+        for data in self.event_data:
+            if (
+                data.get("Name") == "SubjectUserName"
+                and data.text is not None
+                and not re.search(var.UCHECK, data.text)
+            ):
+                tmp_name = data.text.split("@")[0]
+                if not tmp_name.endswith("$"):
+                    self.username = f"{tmp_name.lower()}@"
+
+            self.status = "dsync"
 
     def _event_4672(self):
         for data in self.event_data:
@@ -112,7 +139,7 @@ class Event_obj:
                 and data.text is not None
                 and re.search(r"\A{[\w\-]*}\Z", data.text)
                 ):
-                guid = data.text                    
+                guid = data.text               
             
     
         self.node_tracker = f"policy {category} {guid}"
@@ -288,7 +315,8 @@ def evtx_file_parse(filename):
     # testing123
     a = set()
     for item in things_to_write:
-        print(item.node_tracker, end=".")
+        if item.node_tracker is not None:
+            print(item.node_tracker)
     
 
 
@@ -297,3 +325,4 @@ if __name__ == "__main__":
     time_string = "%Y-%m-%dT%H:%M:%S"
     time_string2 = "%Y-%m-%d %H:%M:%S"
     evtx_file_parse("./upload/meow.evtx")
+    # evtx_file_parse("upload/ForwardedEvents.evtx")
