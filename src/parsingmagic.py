@@ -1,4 +1,6 @@
 import re
+import sys
+import configparser
 from evtx import PyEvtxParser
 from py2neo import Graph
 from lxml import etree
@@ -44,13 +46,17 @@ class Event_obj:
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
         self.node_tracker = None
-    
+
         # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
         try:
-            self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string)
+            self.formatted_time = datetime.strptime(
+                event_time.split(".")[0], time_string
+            )
         except ValueError:
-            self.formatted_time = datetime.strptime(event_time.split(".")[0], time_string2)
+            self.formatted_time = datetime.strptime(
+                event_time.split(".")[0], time_string2
+            )
         self.event_data = record_data.xpath("/Event/EventData/Data")
         self.logintype = 0
         self.username = "-"
@@ -61,6 +67,7 @@ class Event_obj:
         self.sid = "-"
         self.authname = "-"
         self.guid = "-"
+        self.transfer = None
 
         # Initial way to minimize bloat in the logs.  This will reduce the amount of irrelevant nodes/edges inside the database.
         if self.event_id in self.EVENT_ID_LIST:
@@ -71,15 +78,12 @@ class Event_obj:
     def __str__(self):
         return str(self.event_id)
 
-
-
     def _event_1102(self):
-        namespace = (
-                    "http://manifests.microsoft.com/win/2004/08/windows/eventlog"
-                )
-        user_data = self.record_data.xpath("/Event/UserData/ns:LogFileCleared/ns:SubjectUserName", 
-            namespaces= {"ns": namespace}
-            )
+        namespace = "http://manifests.microsoft.com/win/2004/08/windows/eventlog"
+        user_data = self.record_data.xpath(
+            "/Event/UserData/ns:LogFileCleared/ns:SubjectUserName",
+            namespaces={"ns": namespace},
+        )
         domain_data = self.record_data.xpath(
             "/Event/UserData/ns:LogFileCleared/ns:SubjectUserName",
             namespaces={"ns": namespace},
@@ -132,16 +136,15 @@ class Event_obj:
                 data.get("Name") == "CategoryId"
                 and data.text is not None
                 and re.search(r"\A%%\d{4}\Z", data.text)
-                ):
+            ):
                 category = data.text
             if (
                 data.get("Name") == "SubcategoryGuid"
                 and data.text is not None
                 and re.search(r"\A{[\w\-]*}\Z", data.text)
-                ):
-                guid = data.text               
-            
-    
+            ):
+                guid = data.text
+
         self.node_tracker = f"policy {category} {guid}"
 
     def _event_4720_4726(self):
@@ -153,12 +156,11 @@ class Event_obj:
             ):
                 tmp_name = data.text.split("@")[0]
                 if not tmp_name.endswith("$"):
-                    self.username = f"{tmp_name.lower()}@"            
+                    self.username = f"{tmp_name.lower()}@"
         if self.event_id == 4720:
             self.node_tracker = "add user"
         else:
             self.node_tracker = "delete user"
-
 
     def _event_4728_4732_4756(self):
         for data in self.event_data:
@@ -194,9 +196,8 @@ class Event_obj:
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
             ):
                 usid = data.text
-            
-            self.node_tracker = f"Remove {groupname} {usid}"
 
+            self.node_tracker = f"Remove {groupname} {usid}"
 
     def _event_5137_5141(self):
         for data in self.event_data:
@@ -214,64 +215,73 @@ class Event_obj:
     def _event_catch_all(self):
         for data in self.event_data:
             # IP
-            if (data.get("Name") in ["IpAddress", "Wordstation"]
+            if (
+                data.get("Name") in ["IpAddress", "Wordstation"]
                 and data.text is not None
-                and self._ip_check(data.text)):
+                and self._ip_check(data.text)
+            ):
                 ipaddress = data.text.split("@")[0]
                 ipaddress = ipaddress.lower().replace("::ffff:", "")
                 self.ipaddress = ipaddress.replace("\\", "")
 
             # Host
-            if (data.get("Name") == "WorkstationName"
+            if (
+                data.get("Name") == "WorkstationName"
                 and data.text is not None
-                and self._ip_check(data.text)):
+                and self._ip_check(data.text)
+            ):
                 hostname = data.text.split("@")[0]
                 hostname = hostname.lower().replace("::ffff:", "")
                 self.hostname = hostname.replace("\\", "")
-            
+
             # Username
-            if (data.get("Name") == "TargetUserName"
+            if (
+                data.get("Name") == "TargetUserName"
                 and data.text is not None
-                and not re.search(var.UCHECK, data.text)):
+                and not re.search(var.UCHECK, data.text)
+            ):
                 tmp_name = data.text.split("@")[0]
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
-            
+
             # Domain
-            if (data.get("Name") == "TargetDomainName"
+            if (
+                data.get("Name") == "TargetDomainName"
                 and data.text is not None
-                and not re.search(var.HCHECK, data.text)):
+                and not re.search(var.HCHECK, data.text)
+            ):
                 self.domain = data.text
-            
+
             # user sid
-            if (data.get("Name") in ["TargetUserSid", "TargetSid"]
+            if (
+                data.get("Name") in ["TargetUserSid", "TargetSid"]
                 and data.text is not None
-                and re.search(r"\AS-[0-9\-]*\Z", data.text)):
+                and re.search(r"\AS-[0-9\-]*\Z", data.text)
+            ):
                 self.sid = data.text
 
             # logon type
-            if (data.get("Name") == "LogonType"
-                and re.search(r"\A\d{1,2}\Z", data.text)):
+            if data.get("Name") == "LogonType" and re.search(r"\A\d{1,2}\Z", data.text):
                 self.logintype = int(data.text)
-            
+
             # parse status
-            if (data.get("Name") == "status"
-                and re.search(r"\A0x\w{8}\Z", data.text)):
+            if data.get("Name") == "status" and re.search(r"\A0x\w{8}\Z", data.text):
                 self.status = data.text
 
             # parse Authpkg
-            if (data.get("Name") == "AuthenticationPackageName"
-                and re.search(r"\A\w*\Z", data.text)):
+            if data.get("Name") == "AuthenticationPackageName" and re.search(
+                r"\A\w*\Z", data.text
+            ):
                 self.authname = data.text
-    
-                
+
     def _ip_check(self, text_string):
-        
-        return (not re.search(var.HCHECK, text_string)
+
+        return (
+            not re.search(var.HCHECK, text_string)
             or re.search(var.IPv4_PATTERN, text_string)
             or re.search(var.IPv4_v6_PATTERN, text_string)
-            or re.search(var.IPv6_PATTERN, text_string))
-        
+            or re.search(var.IPv6_PATTERN, text_string)
+        )
 
     def update_event(self):
         if self.event_id == 1102:
@@ -295,7 +305,25 @@ class Event_obj:
 
 
 def evtx_file_parse(filename):
-    # evtx validation?
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    try:
+        graph_http = (
+            "http://"
+            + config["DEFAULT"]["NEO4J_USER"]
+            + ":"
+            + config["DEFAULT"]["NEO4J_PASSWORD"]
+            + "@"
+            + "neo4j"
+            + ":"
+            + config["DEFAULT"]["NEO4j_PORT"]
+            + "/db/data/"
+        )
+        GRAPH = Graph(graph_http)
+    except:
+        sys.exit("[!] Can't connect Neo4j Database.")
+
+    transfer = GRAPH.begin()
     things_to_write = []
     with open(filename, "rb") as evtx_file:
         parser = PyEvtxParser(evtx_file)
@@ -308,16 +336,10 @@ def evtx_file_parse(filename):
             # skip logs that are not in the EVENT_ID_LIST
             if event.ignore:
                 continue
-            
-            things_to_write.append(event)
-            # input()
 
+            # input()
+    transfer.commit()
     # testing123
-    a = set()
-    for item in things_to_write:
-        if item.node_tracker is not None:
-            print(item.node_tracker)
-    
 
 
 if __name__ == "__main__":
