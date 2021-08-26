@@ -8,6 +8,9 @@ from datetime import datetime
 import log_constants as var
 
 
+time_string = "%Y-%m-%dT%H:%M:%S"
+time_string2 = "%Y-%m-%d %H:%M:%S"
+
 def update_record(record_xml):
     rep_xml = record_xml.replace(
         'xmlns="http://schemas.microsoft.com/win/2004/08/events/event"', ""
