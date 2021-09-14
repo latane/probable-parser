@@ -1,6 +1,7 @@
 import re
 import sys
 import configparser
+import ipaddress
 from evtx import PyEvtxParser
 from py2neo import Graph
 from lxml import etree
@@ -30,7 +31,7 @@ class Tracker:
         self.dcsync = dict()
         self.dcshadow = dict()
         self.dcsync_count = dict()
-        self.dcshadow_count = dict()
+        self.dcshadow_check = []
         self.count = 0
 
 
@@ -71,9 +72,6 @@ class Event_obj:
         self.record_data = record_data
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
-        
-        # TODO: remove
-        self.node_tracker = None
 
         # prepare time
         event_time = record_data.xpath("/Event/System/TimeCreated")[0].get("SystemTime")
@@ -140,7 +138,9 @@ class Event_obj:
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
 
-            self.tracker.dcsync_count[self.username] = self.tracker.dcsync_count.get(self.username, 0) + 1
+            self.tracker.dcsync_count[self.username] = (
+                self.tracker.dcsync_count.get(self.username, 0) + 1
+            )
             if self.tracker.dcsync_count == 3:
                 self.dsync[self.username] = str(self.formatted_time)
                 self.dcsync_count[self.username] = 0
@@ -182,11 +182,12 @@ class Event_obj:
             ):
                 guid = data.text
 
-        self.tracker.policylist.append([
-            f"{self.formatted_time}",
-            f"{self.username}",
-            f"{category}",
-            f"{guid}".lower()
+        self.tracker.policylist.append(
+            [
+                f"{self.formatted_time}",
+                f"{self.username}",
+                f"{category}",
+                f"{guid}".lower(),
             ]
         )
 
@@ -220,9 +221,7 @@ class Event_obj:
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
             ):
                 usid = data.text
-        self.tracker.addgroups[usid] = (
-            f"AddGroup: {groupname} ({self.formatted_time})"
-        )
+        self.tracker.addgroups[usid] = f"AddGroup: {groupname} ({self.formatted_time})"
 
     def _event_4729_4733_4757(self):
         for data in self.event_data:
@@ -242,9 +241,9 @@ class Event_obj:
             ):
                 usid = data.text
 
-        self.tracker.addgroups[usid] = (
-            f"RemoveGroup: {groupname} ({self.formatted_time})"
-        )
+        self.tracker.addgroups[
+            usid
+        ] = f"RemoveGroup: {groupname} ({self.formatted_time})"
 
     def _event_5137_5141(self):
         for data in self.event_data:
@@ -256,12 +255,14 @@ class Event_obj:
                 tmp_name = data.text.split("@")[0]
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
-
-            self.node_tracker = f"dcshadow {self.formatted_time}"
+            if str(self.formatted_time) in self.tracker.dcshadow_check:
+                self.tracker.dcshadow[self.username] = str(self.formatted_time)
+            else:
+                self.tracker.dcshadow_check.append(str(self.formatted_time))
 
     def _event_catch_all(self):
         for data in self.event_data:
-            self.node_tracker = "MiscEvents:"
+
             # IP
             if (
                 data.get("Name") in ["IpAddress", "Wordstation"]
@@ -321,15 +322,19 @@ class Event_obj:
                 r"\A\w*\Z", data.text
             ):
                 self.authname = data.text
-            
+
+            if self.domain != "-":
+                self.tracker.domain_set.add((self.username, self.domain))
+            if self.username not in self.tracker.username_set:
+                self.tracker.username_set.add(self.username)
+
     def _ip_check(self, text_string):
 
-        return (
-            not re.search(var.HCHECK, text_string)
-            or re.search(var.IPv4_PATTERN, text_string)
-            or re.search(var.IPv4_v6_PATTERN, text_string)
-            or re.search(var.IPv6_PATTERN, text_string)
-        )
+        try:
+            ipaddress.ip_address(text_string)
+            return True
+        except ValueError:
+            return False
 
     def update_event(self):
         if self.event_id == 1102:
@@ -387,9 +392,10 @@ def evtx_file_parse(filename):
 
     print(tracker.__dict__)
 
+
 if __name__ == "__main__":
     # testing
     time_string = "%Y-%m-%dT%H:%M:%S"
     time_string2 = "%Y-%m-%d %H:%M:%S"
-    evtx_file_parse("./upload/meow.evtx")
-    # evtx_file_parse("upload/ForwardedEvents.evtx")
+    # evtx_file_parse("./upload/meow.evtx")
+    evtx_file_parse("upload/ForwardedEvents.evtx")
