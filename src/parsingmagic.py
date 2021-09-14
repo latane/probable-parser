@@ -11,6 +11,29 @@ import log_constants as var
 time_string = "%Y-%m-%dT%H:%M:%S"
 time_string2 = "%Y-%m-%d %H:%M:%S"
 
+
+class Tracker:
+    def __init__(self):
+        self.username_set = set()
+        self.domain_set = set()
+        self.admins = set()
+        self.domains = []
+        self.ntlmauth = []
+        self.delete_log = []
+        self.policylist = []
+        self.addusers = dict()
+        self.delusers = dict()
+        self.addgroups = dict()
+        self.removegroups = dict()
+        self.sids = dict()
+        self.hosts = dict()
+        self.dcsync = dict()
+        self.dcshadow = dict()
+        self.dcsync_count = dict()
+        self.dcshadow_count = dict()
+        self.count = 0
+
+
 def update_record(record_xml):
     rep_xml = record_xml.replace(
         'xmlns="http://schemas.microsoft.com/win/2004/08/events/event"', ""
@@ -44,10 +67,12 @@ class Event_obj:
         5141,
     ]
 
-    def __init__(self, record_data):
+    def __init__(self, record_data, tracker):
         self.record_data = record_data
         self.ignore = False
         self.event_id = int(record_data.xpath("/Event/System/EventID")[0].text)
+        
+        # TODO: remove
         self.node_tracker = None
 
         # prepare time
@@ -71,6 +96,7 @@ class Event_obj:
         self.authname = "-"
         self.guid = "-"
         self.transfer = None
+        self.tracker = tracker
 
         # Initial way to minimize bloat in the logs.  This will reduce the amount of irrelevant nodes/edges inside the database.
         if self.event_id in self.EVENT_ID_LIST:
@@ -80,6 +106,10 @@ class Event_obj:
 
     def __str__(self):
         return str(self.event_id)
+
+    def _name_query(self, name_string):
+        # do this
+        return
 
     def _event_1102(self):
         namespace = "http://manifests.microsoft.com/win/2004/08/windows/eventlog"
@@ -97,7 +127,7 @@ class Event_obj:
                 self.username = f"{tmp_name.lower()}@"
         if domain_data[0].text is not None:
             self.domain = domain_data[0]
-        self.node_tracker = "delete log"
+        self.tracker.delete_log.append(self)
 
     def _event_4662(self):
         for data in self.event_data:
@@ -110,7 +140,10 @@ class Event_obj:
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
 
-            self.status = "dsync"
+            self.tracker.dcsync_count[self.username] = self.tracker.dcsync_count.get(self.username, 0) + 1
+            if self.tracker.dcsync_count == 3:
+                self.dsync[self.username] = str(self.formatted_time)
+                self.dcsync_count[self.username] = 0
 
     def _event_4672(self):
         for data in self.event_data:
@@ -119,11 +152,12 @@ class Event_obj:
                 and data.text is not None
                 and not re.search(var.UCHECK, data.text)
             ):
+                self.username = data.text
                 tmp_name = data.text.split("@")[0]
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
         if self.username != "-":
-            self.node_tracker = "admin"
+            self.tracker.admins.add(self.username)
 
     def _event_4719(self):
         for data in self.event_data:
@@ -148,7 +182,13 @@ class Event_obj:
             ):
                 guid = data.text
 
-        self.node_tracker = f"policy {category} {guid}"
+        self.tracker.policylist.append([
+            f"{self.formatted_time}",
+            f"{self.username}",
+            f"{category}",
+            f"{guid}".lower()
+            ]
+        )
 
     def _event_4720_4726(self):
         for data in self.event_data:
@@ -161,9 +201,9 @@ class Event_obj:
                 if not tmp_name.endswith("$"):
                     self.username = f"{tmp_name.lower()}@"
         if self.event_id == 4720:
-            self.node_tracker = "add user"
+            self.tracker.addusers[self.username] = str(self.formatted_time)
         else:
-            self.node_tracker = "delete user"
+            self.tracker.delusers[self.username] = str(self.formatted_time)
 
     def _event_4728_4732_4756(self):
         for data in self.event_data:
@@ -180,7 +220,9 @@ class Event_obj:
                 and re.search(r"\AS-[0-9\-]*\Z", data.text)
             ):
                 usid = data.text
-        self.node_tracker = f"AddGroup {groupname} {usid}"
+        self.tracker.addgroups[usid] = (
+            f"AddGroup: {groupname} ({self.formatted_time})"
+        )
 
     def _event_4729_4733_4757(self):
         for data in self.event_data:
@@ -200,7 +242,9 @@ class Event_obj:
             ):
                 usid = data.text
 
-            self.node_tracker = f"Remove {groupname} {usid}"
+        self.tracker.addgroups[usid] = (
+            f"RemoveGroup: {groupname} ({self.formatted_time})"
+        )
 
     def _event_5137_5141(self):
         for data in self.event_data:
@@ -217,6 +261,7 @@ class Event_obj:
 
     def _event_catch_all(self):
         for data in self.event_data:
+            self.node_tracker = "MiscEvents:"
             # IP
             if (
                 data.get("Name") in ["IpAddress", "Wordstation"]
@@ -276,7 +321,7 @@ class Event_obj:
                 r"\A\w*\Z", data.text
             ):
                 self.authname = data.text
-
+            
     def _ip_check(self, text_string):
 
         return (
@@ -310,40 +355,37 @@ class Event_obj:
 def evtx_file_parse(filename):
     config = configparser.ConfigParser()
     config.read("config.ini")
-    try:
-        graph_http = (
-            "http://"
-            + config["DEFAULT"]["NEO4J_USER"]
-            + ":"
-            + config["DEFAULT"]["NEO4J_PASSWORD"]
-            + "@"
-            + "neo4j"
-            + ":"
-            + config["DEFAULT"]["NEO4j_PORT"]
-            + "/db/data/"
-        )
-        GRAPH = Graph(graph_http)
-    except:
-        sys.exit("[!] Can't connect Neo4j Database.")
+    # try:
+    #     graph_http = (
+    #         "http://"
+    #         + config["DEFAULT"]["NEO4J_USER"]
+    #         + ":"
+    #         + config["DEFAULT"]["NEO4J_PASSWORD"]
+    #         + "@"
+    #         + "neo4j"
+    #         + ":"
+    #         + config["DEFAULT"]["NEO4j_PORT"]
+    #         + "/db/data/"
+    #     )
+    #     GRAPH = Graph(graph_http)
+    # except:
+    #     sys.exit("[!] Can't connect Neo4j Database.")
 
-    transfer = GRAPH.begin()
-    things_to_write = []
+    # transfer = GRAPH.begin()
+    tracker = Tracker()
     with open(filename, "rb") as evtx_file:
         parser = PyEvtxParser(evtx_file)
 
         for record in parser.records():
 
             record_data = update_record(record["data"])
-            event = Event_obj(record_data)
+            event = Event_obj(record_data, tracker)
 
             # skip logs that are not in the EVENT_ID_LIST
             if event.ignore:
                 continue
 
-            # input()
-    transfer.commit()
-    # testing123
-
+    print(tracker.__dict__)
 
 if __name__ == "__main__":
     # testing
